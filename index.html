@@ -5,57 +5,42 @@
 <title>ARACEA – Lotería Solidaria</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body{margin:0;font-family:Arial;background:#111;color:#fff}
-header{background:#ff7a00;padding:12px;text-align:center;font-weight:bold}
-.container{padding:15px}
-button{width:100%;padding:12px;margin:6px 0;border:none;border-radius:8px;background:#ff7a00;color:#000;font-weight:bold}
-.card{background:#1c1c1c;padding:10px;border-radius:8px;margin-bottom:8px}
-input,select,textarea{width:100%;padding:10px;margin:5px 0;border-radius:6px;border:none}
-.hidden{display:none}
-.total{background:#222;padding:10px;border-radius:8px;margin-top:10px}
-.logo{max-width:180px;margin:10px auto;display:block}
+body { margin:0; font-family:Arial; background:#121212; color:#fff; }
+header { background:#ff7a00; padding:10px; display:flex; align-items:center; gap:10px; }
+header img { height:40px; border-radius:6px; }
+.container { padding:15px; }
+.card { background:#1e1e1e; padding:12px; border-radius:10px; margin-bottom:12px; }
+input, select, button { width:100%; padding:10px; margin-top:6px; border-radius:6px; border:none; }
+button { background:#ff7a00; color:#000; font-weight:bold; }
+.small { font-size:14px; color:#ccc; }
+hr { border:1px solid #333; }
 </style>
 </head>
 <body>
 
-<header>ARACEA – Lotería Solidaria</header>
+<header>
+<img src="20220603_103609.png">
+<b>ARACEA – Lotería Solidaria</b>
+</header>
 
 <div class="container">
 
-<!-- INICIO -->
-<div id="homeView">
-<img src="logo-aracea.png" class="logo">
-<h3>Campañas activas</h3>
-<button onclick="openCampaign('Navidad')">🎄 Navidad</button>
-<button onclick="openCampaign('Niño')">👶 Niño</button>
-<button onclick="openCampaign('Semanal')">📅 Semanal</button>
-<button onclick="openCampaign('Mensual')">📆 Mensual</button>
-<button onclick="showGlobalHistory()">📊 Historial Global</button>
-<button onclick="showBackup()">💾 Copia de seguridad</button>
+<div class="card">
+<b>⚙️ Configuración</b>
+<input type="number" id="beneficio" placeholder="Beneficio por décimo (€)" value="3">
+<button onclick="guardarConfig()">Guardar configuración</button>
 </div>
 
-<!-- AÑOS -->
-<div id="yearView" class="hidden">
-<h3 id="campTitle"></h3>
-<select id="yearSelect"></select>
-<button onclick="enterYear()">Entrar campaña</button>
-<button onclick="backHome()">⬅ Volver</button>
+<div class="card">
+<b>🏛️ Casa de Lotería</b>
+<input type="number" id="decimosCasa" placeholder="Décimos recogidos de la casa">
+<input type="number" id="dineroCasa" placeholder="Dinero entregado a la casa (€)">
+<button onclick="movimientoCasa()">Registrar movimiento casa</button>
+<div class="small" id="estadoCasa"></div>
 </div>
 
-<!-- CAMPAÑA -->
-<div id="campaignView" class="hidden">
-<h3 id="campaignTitle"></h3>
-
-<h4>⚙ Configuración</h4>
-<input type="number" id="beneficio" placeholder="Beneficio ARACEA por décimo (€)">
-<button onclick="saveSettings()">Guardar configuración</button>
-
-<h4>🏦 Casa de Lotería</h4>
-<input type="number" id="casaDecimos" placeholder="Décimos recogidos de la casa">
-<input type="number" id="casaDinero" placeholder="Dinero entregado a la casa (€)">
-<button onclick="addCasa()">Registrar movimiento casa</button>
-
-<h4>🧍 Venta</h4>
+<div class="card">
+<b>🧍 Venta</b>
 <input id="nombre" placeholder="Nombre comprador">
 <input type="number" id="cantidad" placeholder="Cantidad de décimos">
 <input type="number" id="precio" placeholder="Precio por décimo (€)">
@@ -63,195 +48,80 @@ input,select,textarea{width:100%;padding:10px;margin:5px 0;border-radius:6px;bor
 <option>Efectivo</option>
 <option>Bizum</option>
 <option>Transferencia</option>
-<option>Otro</option>
 </select>
-<textarea id="obs" placeholder="Observaciones"></textarea>
-<button onclick="addVenta()">Guardar venta</button>
-
-<h4>📜 Historial ventas</h4>
-<div id="ventasList"></div>
-
-<div class="total" id="resumen"></div>
-
-<button onclick="closeCampaign()">🔒 Cerrar campaña</button>
-<button onclick="backYears()">⬅ Cambiar año</button>
+<input id="obs" placeholder="Observaciones">
+<button onclick="guardarVenta()">Guardar venta</button>
 </div>
 
-<!-- HISTORIAL GLOBAL -->
-<div id="historyView" class="hidden">
-<h3>Historial Global</h3>
-<div id="historyList"></div>
-<button onclick="backHome()">⬅ Volver</button>
+<div class="card">
+<b>📜 Historial ventas</b>
+<div id="historial"></div>
 </div>
 
-<!-- BACKUP -->
-<div id="backupView" class="hidden">
-<h3>Copia de seguridad</h3>
-<button onclick="exportBackup()">Exportar copia</button>
-<input type="file" id="importFile">
-<button onclick="importBackup()">Restaurar copia</button>
-<button onclick="backHome()">⬅ Volver</button>
+<div class="card">
+<b>💰 Estado actual</b>
+<div id="estado"></div>
 </div>
 
 </div>
 
 <script>
-let data=JSON.parse(localStorage.getItem("araceaApp"))||{campaigns:{}};
-let currentCamp="",currentYear="";
+let ventas = JSON.parse(localStorage.getItem("ventas")) || [];
+let config = JSON.parse(localStorage.getItem("config")) || {beneficio:3};
+let casa = JSON.parse(localStorage.getItem("casa")) || {decimos:0,dinero:0};
 
-function save(){localStorage.setItem("araceaApp",JSON.stringify(data));}
+document.getElementById("beneficio").value = config.beneficio;
 
-function openCampaign(c){
- currentCamp=c;
- document.getElementById("homeView").classList.add("hidden");
- document.getElementById("yearView").classList.remove("hidden");
- document.getElementById("campTitle").innerText="Campaña "+c;
- loadYears();
+function guardarConfig(){
+  config.beneficio = Number(document.getElementById("beneficio").value);
+  localStorage.setItem("config",JSON.stringify(config));
+  alert("Configuración guardada");
+  actualizar();
 }
 
-function loadYears(){
- let sel=document.getElementById("yearSelect");
- sel.innerHTML="";
- let y=new Date().getFullYear();
- for(let i=y-1;i<=y+3;i++){
-  let o=document.createElement("option");
-  o.value=i;o.text=i;
-  sel.appendChild(o);
- }
+function movimientoCasa(){
+  casa.decimos += Number(document.getElementById("decimosCasa").value||0);
+  casa.dinero += Number(document.getElementById("dineroCasa").value||0);
+  localStorage.setItem("casa",JSON.stringify(casa));
+  document.getElementById("estadoCasa").innerText="Décimos en casa: "+casa.decimos+" | Dinero entregado: "+casa.dinero+"€";
+  actualizar();
 }
 
-function enterYear(){
- currentYear=document.getElementById("yearSelect").value;
- if(!data.campaigns[currentCamp])data.campaigns[currentCamp]={};
- if(!data.campaigns[currentCamp][currentYear]){
-  data.campaigns[currentCamp][currentYear]={ventas:[],casa:[],beneficio:3,closed:false};
- }
- showCampaign();
+function guardarVenta(){
+  let v={
+    nombre:nombre.value,
+    cant:Number(cantidad.value),
+    precio:Number(precio.value),
+    pago:pago.value,
+    obs:obs.value
+  };
+  ventas.push(v);
+  localStorage.setItem("ventas",JSON.stringify(ventas));
+  actualizar();
 }
 
-function showCampaign(){
- document.getElementById("yearView").classList.add("hidden");
- document.getElementById("campaignView").classList.remove("hidden");
- document.getElementById("campaignTitle").innerText=currentCamp+" "+currentYear;
- document.getElementById("beneficio").value=data.campaigns[currentCamp][currentYear].beneficio;
- renderVentas();
-}
-
-function saveSettings(){
- data.campaigns[currentCamp][currentYear].beneficio=parseFloat(document.getElementById("beneficio").value||3);
- save();alert("Configuración guardada");
-}
-
-function addCasa(){
- let d=parseInt(document.getElementById("casaDecimos").value||0);
- let e=parseFloat(document.getElementById("casaDinero").value||0);
- data.campaigns[currentCamp][currentYear].casa.push({d,e});
- save();alert("Movimiento guardado");
- document.getElementById("casaDecimos").value="";
- document.getElementById("casaDinero").value="";
-}
-
-function addVenta(){
- let n=document.getElementById("nombre").value;
- let c=parseInt(document.getElementById("cantidad").value);
- let p=parseFloat(document.getElementById("precio").value);
- let f=document.getElementById("pago").value;
- let o=document.getElementById("obs").value;
- if(!n||!c||!p)return alert("Faltan datos");
- data.campaigns[currentCamp][currentYear].ventas.push({n,c,p,f,o});
- save();
- document.getElementById("nombre").value="";
- document.getElementById("cantidad").value="";
- document.getElementById("precio").value="";
- document.getElementById("obs").value="";
- renderVentas();
-}
-
-function renderVentas(){
- let list=document.getElementById("ventasList");
- let res=document.getElementById("resumen");
- list.innerHTML="";
- let total=0,dec=0,benef=0;
- let b=data.campaigns[currentCamp][currentYear].beneficio;
- data.campaigns[currentCamp][currentYear].ventas.forEach((v,i)=>{
-  total+=v.c*v.p;
-  dec+=v.c;
-  benef+=v.c*b;
-  list.innerHTML+=`
-  <div class="card">
-  ${v.n} – ${v.c} décimos – ${v.p}€ (${v.f})<br>
-  ${v.o}
-  <button onclick="delVenta(${i})">❌</button>
-  </div>`;
- });
- res.innerHTML=`
- 💰 Total recaudado: ${total} €<br>
- 🎟️ Décimos vendidos: ${dec}<br>
- 🐾 Beneficio ARACEA: ${benef} €
- `;
-}
-
-function delVenta(i){
- data.campaigns[currentCamp][currentYear].ventas.splice(i,1);
- save();renderVentas();
-}
-
-function closeCampaign(){
- data.campaigns[currentCamp][currentYear].closed=true;
- save();alert("Campaña cerrada");
-}
-
-function backYears(){
- document.getElementById("campaignView").classList.add("hidden");
- document.getElementById("yearView").classList.remove("hidden");
-}
-
-function backHome(){
- document.getElementById("yearView").classList.add("hidden");
- document.getElementById("campaignView").classList.add("hidden");
- document.getElementById("historyView").classList.add("hidden");
- document.getElementById("backupView").classList.add("hidden");
- document.getElementById("homeView").classList.remove("hidden");
-}
-
-function showGlobalHistory(){
- document.getElementById("homeView").classList.add("hidden");
- document.getElementById("historyView").classList.remove("hidden");
- let h=document.getElementById("historyList");
- h.innerHTML="";
- Object.keys(data.campaigns).forEach(c=>{
-  Object.keys(data.campaigns[c]).forEach(y=>{
-   let sum=0;
-   data.campaigns[c][y].ventas.forEach(v=>sum+=v.c*v.p);
-   h.innerHTML+=`<div class="card">${c} ${y} → ${sum} €</div>`;
+function actualizar(){
+  let h="";
+  let total=0, vendidos=0;
+  ventas.forEach((v,i)=>{
+    total+=v.cant*v.precio;
+    vendidos+=v.cant;
+    h+=`${v.nombre} – ${v.cant} décimos – ${v.cant*v.precio}€ (${v.pago})<hr>`;
   });
- });
+  historial.innerHTML=h||"Sin ventas aún";
+  let beneficio = vendidos * config.beneficio;
+  let dineroEnMano = total - casa.dinero;
+  estado.innerHTML=`
+  Total vendido: ${total}€<br>
+  Décimos vendidos: ${vendidos}<br>
+  Beneficio ARACEA: ${beneficio}€<br>
+  Dinero en mano: ${dineroEnMano}€<br>
+  Décimos disponibles: ${casa.decimos - vendidos}
+  `;
 }
 
-function showBackup(){
- document.getElementById("homeView").classList.add("hidden");
- document.getElementById("backupView").classList.remove("hidden");
-}
-
-function exportBackup(){
- let blob=new Blob([JSON.stringify(data)],{type:"application/json"});
- let a=document.createElement("a");
- a.href=URL.createObjectURL(blob);
- a.download="aracea_backup.json";
- a.click();
-}
-
-function importBackup(){
- let f=document.getElementById("importFile").files[0];
- if(!f)return;
- let r=new FileReader();
- r.onload=e=>{
-  data=JSON.parse(e.target.result);
-  save();alert("Copia restaurada");
-  backHome();
- };
- r.readAsText(f);
-}
+actualizar();
 </script>
+
 </body>
 </html>
