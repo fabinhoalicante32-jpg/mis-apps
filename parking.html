@@ -217,7 +217,7 @@ function abrirRutaAndando(){
   if(!park) return;
   const dest = `${park.lat},${park.lon}`;
   const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}&travelmode=walking`;
-  window.open(url, "_blank");
+  window.location.href = `google.navigation:q=${park.lat},${park.lon}&mode=w`;
 }
 
 // 📌 Ver pin del coche en Maps (sin ruta)
@@ -225,7 +225,7 @@ function verUbicacionCoche(){
   if(!park) return;
   const q = `${park.lat},${park.lon}`;
   const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
-  window.open(url, "_blank");
+  window.location.href = `geo:${park.lat},${park.lon}?q=${park.lat},${park.lon}(Mi+Coche)`;
 }
 
 async function copiarCoords(){
