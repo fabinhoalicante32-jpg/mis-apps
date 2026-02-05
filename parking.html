@@ -59,9 +59,7 @@
     flex:1 1 160px;
     padding:10px 8px;
   }
-  .danger{
-    background:#b00020;
-  }
+  .danger{ background:#b00020; }
   .soft{
     background:#e6f0fa;
     color:#0b2a55;
@@ -83,10 +81,7 @@
   .line:last-child{border-bottom:none;}
   .muted{color:#666;}
   .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
-  .small{
-    font-size:13px;
-    color:#666;
-  }
+  .small{ font-size:13px; color:#666; }
 </style>
 </head>
 <body>
@@ -100,8 +95,8 @@
   <button class="big" id="btnGuardar" onclick="guardarParking()">📍 Guardar dónde aparqué</button>
 
   <div class="btn-row">
-    <button id="btnAndando" class="soft" onclick="abrirMaps('w')" disabled>🚶 Ir al coche (andar)</button>
-    <button id="btnCoche" class="soft" onclick="abrirMaps('d')" disabled>🚗 Ir al coche (coche)</button>
+    <button id="btnAndando" class="soft" onclick="abrirRutaAndando()" disabled>🚶 Ir andando al coche</button>
+    <button id="btnVer" class="soft" onclick="verUbicacionCoche()" disabled>📌 Ver dónde está mi coche</button>
   </div>
 
   <div style="margin-top:10px" id="estadoBox" class="small muted">
@@ -125,23 +120,11 @@
 </div>
 
 <script>
-/* =========================
-   LocalStorage keys (solo esta app)
-   ========================= */
-const LS = {
-  PARK: "park1_location"
-};
+const LS = { PARK: "park1_location" };
 
 document.getElementById("fechaHoy").textContent = new Date().toLocaleDateString("es-ES");
-
-/* =========================
-   Estado
-   ========================= */
 let park = null; // {lat, lon, acc, ts}
 
-/* =========================
-   Helpers
-   ========================= */
 function safeNum(n){
   const x = parseFloat(n);
   return isNaN(x) ? 0 : x;
@@ -153,18 +136,11 @@ function formatDT(ts){
 }
 function setEnabled(has){
   document.getElementById("btnAndando").disabled = !has;
-  document.getElementById("btnCoche").disabled = !has;
+  document.getElementById("btnVer").disabled = !has;
   document.getElementById("btnBorrar").disabled = !has;
   document.getElementById("btnCopiar").disabled = !has;
 }
-function clearHash(){
-  // quita #save / #walk / etc para que al refrescar no repita
-  history.replaceState(null, "", location.pathname + location.search);
-}
 
-/* =========================
-   Render
-   ========================= */
 function render(){
   const box = document.getElementById("estadoBox");
 
@@ -186,12 +162,17 @@ function render(){
   setEnabled(true);
 }
 
-/* =========================
-   Guardar ubicación
-   ========================= */
-function guardarParking(){
+function guardarParking(opts = {}){
+  const { silent=false, overwrite=false } = opts;
+
   if(!navigator.geolocation){
-    alert("Tu navegador no soporta GPS (geolocalización).");
+    if(!silent) alert("Tu navegador no soporta GPS (geolocalización).");
+    return;
+  }
+
+  // si ya hay una ubicación y no quieres sobreescribir (modo rutina auto), salimos
+  if(park && !overwrite){
+    if(!silent) alert("Ya hay una ubicación guardada. Si quieres cambiarla, pulsa Guardar.");
     return;
   }
 
@@ -215,10 +196,7 @@ function guardarParking(){
       try{ navigator.vibrate && navigator.vibrate(60); }catch(e){}
 
       render();
-      alert("Ubicación guardada ✅");
-
-      // ✅ si venimos de #save, quitamos el hash
-      if(location.hash) clearHash();
+      if(!silent) alert("Ubicación guardada ✅");
     },
     (err) => {
       btn.disabled = false;
@@ -229,47 +207,29 @@ function guardarParking(){
       if(err && err.code === 2) msg = "Ubicación no disponible. Prueba en un sitio con mejor cobertura GPS.";
       if(err && err.code === 3) msg = "Se agotó el tiempo. Vuelve a intentar.";
 
-      alert(msg);
-
-      if(location.hash) clearHash();
+      if(!silent) alert(msg);
     },
-    {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    }
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
   );
 }
 
-/* =========================
-   Abrir Google Maps
-   ========================= */
-function abrirMaps(mode){
+function abrirRutaAndando(){
   if(!park) return;
-
   const dest = `${park.lat},${park.lon}`;
-
-  // Mode: w (walking), d (driving)
-  const travel = (mode === "w") ? "walking" : "driving";
-
-  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}&travelmode=${travel}`;
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}&travelmode=walking`;
   window.open(url, "_blank");
 }
 
-/* ✅ NUEVO: Solo ver la ubicación (pin) */
-function abrirPin(){
+// 📌 Ver pin del coche en Maps (sin ruta)
+function verUbicacionCoche(){
   if(!park) return;
   const q = `${park.lat},${park.lon}`;
   const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
   window.open(url, "_blank");
 }
 
-/* =========================
-   Copiar coords
-   ========================= */
 async function copiarCoords(){
   if(!park) return;
-
   const txt = `${park.lat.toFixed(6)}, ${park.lon.toFixed(6)}`;
   try{
     await navigator.clipboard.writeText(txt);
@@ -285,9 +245,6 @@ async function copiarCoords(){
   }
 }
 
-/* =========================
-   Borrar
-   ========================= */
 function borrarParking(){
   if(!park) return;
   if(!confirm("¿Borrar la ubicación guardada?")) return;
@@ -298,9 +255,6 @@ function borrarParking(){
   alert("Ubicación borrada");
 }
 
-/* =========================
-   Backup / Restaurar
-   ========================= */
 function hacerBackup(){
   const data = { park1_location: park };
   const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
@@ -324,12 +278,7 @@ function restaurarBackup(event){
       const p = data.park1_location;
 
       if(p && typeof p.lat === "number" && typeof p.lon === "number"){
-        park = {
-          lat: p.lat,
-          lon: p.lon,
-          acc: safeNum(p.acc),
-          ts: p.ts || Date.now()
-        };
+        park = { lat: p.lat, lon: p.lon, acc: safeNum(p.acc), ts: p.ts || Date.now() };
         localStorage.setItem(LS.PARK, JSON.stringify(park));
         render();
         alert("Copia restaurada correctamente ✅");
@@ -345,47 +294,14 @@ function restaurarBackup(event){
   reader.readAsText(file);
 }
 
-/* =========================
-   ✅ NUEVO: Acciones por hash
-   - #save  = guarda ubicación directo
-   - #walk  = abre Maps andando directo al coche
-   - #pin   = abre Maps con el pin (solo ver)
-   ========================= */
-function runHashAction(){
-  const h = (location.hash || "").toLowerCase();
-
-  if(h === "#save"){
-    // Directo sin preguntar: pisa encima y ya
-    guardarParking();
-    return;
-  }
-
-  if(h === "#walk"){
-    if(!park){
-      alert("No hay ubicación guardada todavía.");
-      clearHash();
-      return;
-    }
-    abrirMaps("w");
-    clearHash();
-    return;
-  }
-
-  if(h === "#pin"){
-    if(!park){
-      alert("No hay ubicación guardada todavía.");
-      clearHash();
-      return;
-    }
-    abrirPin();
-    clearHash();
-    return;
-  }
+function getParams(){
+  const p = new URLSearchParams(window.location.search);
+  return {
+    auto: p.get("auto") === "1",
+    go: p.get("go") === "1"
+  };
 }
 
-/* =========================
-   Init
-   ========================= */
 (function init(){
   try{
     const saved = JSON.parse(localStorage.getItem(LS.PARK));
@@ -396,8 +312,19 @@ function runHashAction(){
 
   render();
 
-  // ejecuta lo que pida el hash (si viene de una rutina)
-  runHashAction();
+  // ✅ parámetros para tus rutinas Samsung
+  const params = getParams();
+
+  // auto=1 -> guarda SOLO si no hay ubicación guardada (no pisa la anterior)
+  if(params.auto){
+    guardarParking({ silent:true, overwrite:false });
+  }
+
+  // go=1 -> abre Maps directo al pin del coche
+  if(params.go){
+    if(park) verUbicacionCoche();
+    else alert("No hay ubicación guardada todavía.");
+  }
 })();
 </script>
 
