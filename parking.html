@@ -317,7 +317,7 @@ function getParams(){
 
   // auto=1 -> guarda SOLO si no hay ubicación guardada (no pisa la anterior)
   if(params.auto){
-    guardarParking({ silent:true, overwrite:false });
+    guardarParking({ silent:true, overwrite:true });
   }
 
   // go=1 -> abre Maps directo al pin del coche
