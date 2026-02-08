@@ -6,24 +6,23 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Al tocar la notificación: abrir Google Maps con el punto
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const url = event.notification?.data?.url;
+  const data = event.notification.data || {};
+  const url = data.url || "./index.html";
 
-  event.waitUntil((async () => {
-    // Si tenemos URL (Maps), abrirla
-    if (url) {
-      // intenta abrir directamente Maps (via web URL que Android suele abrir con la app)
-      return clients.openWindow(url);
-    }
-
-    // fallback: enfocar la PWA si ya está abierta
-    const allClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
-    for (const c of allClients) {
-      if (c.url && "focus" in c) return c.focus();
-    }
-    return clients.openWindow("./");
-  })());
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      // Si ya está abierta, enfoca
+      for (const c of clients) {
+        if (c.url && c.url.includes("index.html")) {
+          c.focus();
+          return c.navigate(url);
+        }
+      }
+      // Si no, abre nueva
+      return self.clients.openWindow(url);
+    })
+  );
 });
