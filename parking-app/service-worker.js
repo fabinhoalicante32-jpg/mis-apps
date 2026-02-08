@@ -3,11 +3,13 @@ const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
+  "./parking_192x192.png",
+  "./parking_512x512.png",
   "./service-worker.js"
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(ASSETS)));
   self.skipWaiting();
 });
 
@@ -20,7 +22,11 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Solo cachea cosas dentro de /parking-app/
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (!url.pathname.includes("/parking-app/")) return;
+
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
