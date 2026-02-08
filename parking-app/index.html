@@ -40,29 +40,23 @@
       return p === "granted";
     }
 
-    // 3) Crear URL de Google Maps para el coche
-    function mapsUrl(lat, lng) {
-      // Esta URL suele abrir directamente Google Maps en Android
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lat + "," + lng)}`;
-    }
-
-    // 4) Mostrar notificación (sin push, solo “local” al guardar)
+    // 3) Mostrar notificación (sin push, solo “local” al guardar)
+    // ✅ CAMBIO: mandamos lat/lng al service worker (NO url)
     async function notificarBuscarCoche(lat, lng) {
       const ok = await asegurarPermisoNoti();
       if (!ok) return;
 
       const reg = await navigator.serviceWorker.ready;
-      const url = mapsUrl(lat, lng);
 
       await reg.showNotification("Buscar coche", {
         body: "Toca para abrir Google Maps",
-        tag: "buscar-coche",      // para no duplicar mil notificaciones
+        tag: "buscar-coche",
         renotify: true,
-        data: { lat, lng }            // esto lo usa el service-worker al hacer click
+        data: { lat, lng } // ✅ esto lo usa el service-worker.js al hacer click
       });
     }
 
-    // 5) Leer coords desde el contenido de tu app (estadoBox suele mostrar "Coords 38.xxx, -0.xxx")
+    // 4) Leer coords desde el contenido de tu app (estadoBox suele mostrar "Coords 38.xxx, -0.xxx")
     function leerCoordsDesdeIframe(iframe) {
       try {
         const doc = iframe.contentDocument;
@@ -86,6 +80,17 @@
       }
     }
 
+    // 5) Intentar “forzar” guardar aunque haya una ubicación previa
+    // ✅ NO tocamos parking.html: probamos funciones comunes si existen
+    function intentarBorrarAntesDeGuardar(w) {
+      try {
+        if (typeof w.borrarParking === "function") w.borrarParking();
+        if (typeof w.borrarUbicacion === "function") w.borrarUbicacion();
+        if (typeof w.limpiarParking === "function") w.limpiarParking();
+        if (typeof w.resetParking === "function") w.resetParking();
+      } catch (e) {}
+    }
+
     // 6) Enganchar (sin tocar parking.html): “envolvemos” la función guardarParking del iframe
     function engancharGuardar(iframe) {
       try {
@@ -98,6 +103,9 @@
         const original = w.guardarParking.bind(w);
 
         w.guardarParking = async function() {
+          // ✅ primero intentamos borrar si existe algo (para evitar “ya hay una ubicación”)
+          intentarBorrarAntesDeGuardar(w);
+
           // ejecuta lo de siempre (tu app guarda ubicación)
           const r = await original();
 
@@ -115,7 +123,7 @@
     }
 
     // 7) Atajo “Aparcar”: si abres la PWA con #aparcar, auto-guarda
-    async function autoAparcarSiToca(iframe) {
+    function autoAparcarSiToca(iframe) {
       const shouldPark = (location.hash === "#aparcar");
       if (!shouldPark) return;
 
@@ -130,9 +138,7 @@
     const iframe = document.getElementById("appFrame");
 
     iframe.addEventListener("load", () => {
-      // engancha guardarParking cuando cargue la app real
       engancharGuardar(iframe);
-      // si venimos del atajo #aparcar, aparca automáticamente
       autoAparcarSiToca(iframe);
     });
   </script>
