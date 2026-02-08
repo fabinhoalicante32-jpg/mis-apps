@@ -2,26 +2,19 @@
   "name": "Parking",
   "short_name": "Parking",
   "start_url": "./index.html",
-  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#222222",
   "icons": [
-    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
-  ],
-  "shortcuts": [
     {
-      "name": "Aparcar",
-      "short_name": "Aparcar",
-      "url": "./index.html#aparcar",
-      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
     },
     {
-      "name": "Buscar coche",
-      "short_name": "Buscar",
-      "url": "./index.html#buscar",
-      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }
