@@ -1,153 +1,104 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Parking</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Parking</title>
 
-  <!-- PWA -->
-  <link rel="manifest" href="./manifest.json" />
-  <meta name="theme-color" content="#222222" />
+<link rel="manifest" href="./manifest.json" />
+<meta name="theme-color" content="#222222" />
 
-  <style>
-    html, body { height: 100%; margin: 0; padding: 0; background:#fff; }
-    #appFrame{
-      width:100%;
-      height:100%;
-      border:0;
-      display:block;
-    }
-  </style>
+<style>
+html, body { height:100%; margin:0; padding:0; background:#fff; }
+#appFrame { width:100%; height:100%; border:0; display:block; }
+</style>
 </head>
 
 <body>
-  <!-- Tu app real antigua (NO se toca) -->
-  <iframe id="appFrame" src="../parking.html"></iframe>
 
-  <script>
-    // 1) Registrar service worker
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
-    }
+<iframe id="appFrame" src="../parking.html"></iframe>
 
-    // 2) Permiso notificaciones (se pide solo cuando guardas aparcamiento)
-    async function asegurarPermisoNoti() {
-      if (!("Notification" in window)) return false;
-      if (Notification.permission === "granted") return true;
-      if (Notification.permission === "denied") return false;
-      const p = await Notification.requestPermission();
-      return p === "granted";
-    }
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./service-worker.js");
+}
 
-    // 3) Mostrar notificación "Buscar coche" con coords (IMPORTANTE: lat/lng)
-    async function notificarBuscarCoche(lat, lng) {
-      const ok = await asegurarPermisoNoti();
-      if (!ok) return;
+async function pedirPermiso() {
+  if (!("Notification" in window)) return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") return false;
+  const p = await Notification.requestPermission();
+  return p === "granted";
+}
 
-      const reg = await navigator.serviceWorker.ready;
+function mapsIntent(lat, lng) {
+  return `intent://maps.google.com/maps?daddr=${lat},${lng}#Intent;scheme=https;package=com.google.android.apps.maps;end`;
+}
 
-      await reg.showNotification("Buscar coche", {
-        body: "Toca para abrir Google Maps",
-        tag: "buscar-coche",
-        renotify: true,
-        data: { lat, lng } // ✅ ahora coincide con el service-worker
-      });
-    }
+async function enviarNotificacion(lat, lng) {
+  const ok = await pedirPermiso();
+  if (!ok) return;
 
-    // 4) Leer coords desde el iframe (busca "38.123, -0.456" en estadoBox)
-    function leerCoordsDesdeIframe(iframe) {
-      try {
-        const doc = iframe.contentDocument;
-        if (!doc) return null;
+  const reg = await navigator.serviceWorker.ready;
 
-        const box = doc.getElementById("estadoBox");
-        if (!box) return null;
+  reg.showNotification("Buscar coche", {
+    body: "Toca para abrir Google Maps",
+    tag: "buscar-coche",
+    renotify: true,
+    data: { lat, lng }
+  });
+}
 
-        const txt = (box.textContent || "").trim();
-        const m = txt.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
-        if (!m) return null;
+function leerCoords(iframe) {
+  try {
+    const doc = iframe.contentDocument;
+    const box = doc.getElementById("estadoBox");
+    if (!box) return null;
 
-        const lat = parseFloat(m[1]);
-        const lng = parseFloat(m[2]);
-        if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+    const txt = box.textContent || "";
+    const m = txt.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+    if (!m) return null;
 
-        return { lat, lng };
-      } catch {
-        return null;
-      }
-    }
+    return {
+      lat: parseFloat(m[1]),
+      lng: parseFloat(m[2])
+    };
+  } catch(e) {
+    return null;
+  }
+}
 
-    // 5) Hook SIN tocar parking.html:
-    //    - confirm() => siempre SI durante guardar
-    //    - alert() => silencioso durante guardar
-    //    Así no tienes 3 ventanas de "Aceptar"
-    function engancharGuardar(iframe) {
-      try {
-        const w = iframe.contentWindow;
-        if (!w || typeof w.guardarParking !== "function") return;
+function engancharGuardar(iframe) {
+  try {
+    const w = iframe.contentWindow;
+    if (!w || typeof w.guardarParking !== "function") return;
+    if (w.__hooked) return;
 
-        if (w.__fabioHookedParking) return;
-        w.__fabioHookedParking = true;
+    w.__hooked = true;
+    const original = w.guardarParking.bind(w);
 
-        const originalGuardar = w.guardarParking.bind(w);
+    w.guardarParking = async function() {
+      const r = await original();
 
-        w.guardarParking = async function() {
-          // Guardamos handlers originales
-          const oldConfirm = w.confirm;
-          const oldAlert = w.alert;
-
-          // ✅ Durante el guardado: confirm siempre "sí" y alert no molesta
-          w.confirm = () => true;
-          w.alert = () => {};
-
-          let r;
-          try {
-            r = await originalGuardar();
-          } finally {
-            // Restaurar handlers originales SIEMPRE
-            w.confirm = oldConfirm;
-            w.alert = oldAlert;
-          }
-
-          // Espera un poco para que estadoBox se actualice
-          setTimeout(() => {
-            const coords = leerCoordsDesdeIframe(iframe);
-            if (coords) notificarBuscarCoche(coords.lat, coords.lng);
-          }, 350);
-
-          return r;
-        };
-      } catch {}
-    }
-
-    // 6) Atajos de icono (long-press):
-    //    - #aparcar => guarda y crea notificación
-    //    - #buscar  => abre maps desde notificación ya existente (si hay coords)
-    function ejecutarAtajoHash(iframe) {
-      const h = (location.hash || "").toLowerCase();
-
-      try {
-        const w = iframe.contentWindow;
-        if (!w) return;
-
-        if (h === "#aparcar") {
-          if (typeof w.guardarParking === "function") w.guardarParking();
+      setTimeout(() => {
+        const coords = leerCoords(iframe);
+        if (coords) {
+          enviarNotificacion(coords.lat, coords.lng);
         }
+      }, 300);
 
-        if (h === "#buscar") {
-          const coords = leerCoordsDesdeIframe(iframe);
-          if (coords) notificarBuscarCoche(coords.lat, coords.lng);
-        }
-      } catch {}
-    }
+      return r;
+    };
 
-    const iframe = document.getElementById("appFrame");
-    iframe.addEventListener("load", () => {
-      engancharGuardar(iframe);
-      ejecutarAtajoHash(iframe);
-    });
+  } catch(e){}
+}
 
-    window.addEventListener("hashchange", () => ejecutarAtajoHash(iframe));
-  </script>
+const iframe = document.getElementById("appFrame");
+
+iframe.addEventListener("load", () => {
+  engancharGuardar(iframe);
+});
+</script>
+
 </body>
 </html>
