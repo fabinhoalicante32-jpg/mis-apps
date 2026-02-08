@@ -1,37 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Parking</title>
 
-  <!-- ✅ Manifest (IMPORTANTE: ruta relativa dentro de /parking-app/) -->
-  <link rel="manifest" href="./manifest.json" />
+  <!-- Redirige a tu app buena (la que ya funciona) -->
+  <meta http-equiv="refresh" content="0; url=../parking.html">
 
-  <!-- ✅ Iconos (por si el manifest tarda o el móvil los pide aquí) -->
-  <link rel="icon" sizes="192x192" href="./parking_192x192.png">
-  <link rel="icon" sizes="512x512" href="./parking_512x512.png">
-
-  <!-- ✅ Para que se vea como app -->
-  <meta name="theme-color" content="#0b2d4d" />
+  <style>
+    body{font-family:Arial, sans-serif; padding:16px;}
+  </style>
 </head>
-
-<body style="margin:0; padding:0; height:100vh;">
-  <!-- ✅ Carga tu app REAL de parking SIN tocarla -->
-  <iframe
-    src="../parking.html"
-    style="border:0; width:100%; height:100vh;"
-    allow="geolocation; clipboard-write"
-  ></iframe>
-
-  <script>
-    // ✅ Registrar Service Worker (PWA)
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
-      });
-    }
-  </script>
+<body>
+  Abriendo Parking...
 </body>
 </html>
