@@ -5,89 +5,195 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Parking</title>
 <style>
+  :root{
+    /* Tema A (CLARO gris premium) */
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --text: #111827;
+    --muted: #6b7280;
+    --border: rgba(17,24,39,0.10);
+    --shadow: 0 6px 18px rgba(0,0,0,0.06);
+
+    --btn: #374151;           /* principal */
+    --btnText: #ffffff;
+
+    --btnSoftBg: #f3f4f6;     /* secundarios */
+    --btnSoftText: #111827;
+    --btnSoftBorder: rgba(17,24,39,0.12);
+
+    --danger: #b00020;
+
+    --line: rgba(17,24,39,0.08);
+    --chipBg: rgba(17,24,39,0.04);
+
+    --radiusCard: 16px;
+    --radiusBtn: 12px;
+  }
+
+  body.dark{
+    /* Tema B (OSCURO dark steel) */
+    --bg: #0b1220;
+    --card: #111a2e;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --border: rgba(255,255,255,0.10);
+    --shadow: 0 10px 22px rgba(0,0,0,0.35);
+
+    --btn: #e5e7eb;
+    --btnText: #0b1220;
+
+    --btnSoftBg: rgba(255,255,255,0.06);
+    --btnSoftText: #e5e7eb;
+    --btnSoftBorder: rgba(255,255,255,0.14);
+
+    --danger: #ff4d6d;
+
+    --line: rgba(255,255,255,0.10);
+    --chipBg: rgba(255,255,255,0.06);
+  }
+
   body{
-    font-family: Arial, sans-serif;
-    background:#f4f6f9;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
     margin:0;
-    padding:12px;
-  }
-  h1{
-    text-align:center;
-    font-size:22px;
-    margin:6px 0 4px 0;
-  }
-  .date-top{
-    text-align:center;
-    font-size:13px;
-    color:#777;
-    margin-bottom:12px;
-  }
-  .card{
-    background:#fff;
     padding:14px;
-    border-radius:14px;
-    margin-bottom:14px;
-    box-shadow:0 4px 12px rgba(0,0,0,0.05);
   }
+
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin:6px 0 12px 0;
+  }
+
+  h1{
+    font-size:22px;
+    margin:0;
+    letter-spacing:0.2px;
+  }
+
+  .date-top{
+    font-size:13px;
+    color: var(--muted);
+    margin:4px 0 0 0;
+  }
+
+  .theme-btn{
+    width:auto;
+    padding:10px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    box-shadow: none;
+    font-weight:600;
+    cursor:pointer;
+  }
+
+  .card{
+    background: var(--card);
+    padding:14px;
+    border-radius: var(--radiusCard);
+    margin-bottom:14px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+
   button, input{
     width:100%;
     box-sizing:border-box;
-    padding:10px;
-    margin:6px 0;
-    border-radius:10px;
-    border:1px solid #ddd;
+    padding:11px 12px;
+    margin:8px 0;
+    border-radius: var(--radiusBtn);
+    border:1px solid var(--border);
     font-size:14px;
+    background: transparent;
+    color: var(--text);
   }
+
   button{
-    background:#004481;
-    color:#fff;
+    background: var(--btn);
+    color: var(--btnText);
     border:none;
-    font-weight:bold;
+    font-weight:700;
     cursor:pointer;
   }
+
   button:disabled{
     opacity:0.6;
     cursor:not-allowed;
   }
+
   .btn-row{
     display:flex;
     gap:10px;
     flex-wrap:wrap;
   }
+
   .btn-row button{
     width:auto;
     flex:1 1 160px;
-    padding:10px 8px;
+    padding:11px 10px;
   }
-  .danger{ background:#b00020; }
+
+  .danger{ background: var(--danger); color:#fff; }
+
   .soft{
-    background:#e6f0fa;
-    color:#0b2a55;
-    border:1px solid rgba(0,0,0,0.08);
+    background: var(--btnSoftBg);
+    color: var(--btnSoftText);
+    border:1px solid var(--btnSoftBorder);
+    font-weight:700;
   }
+
   .big{
-    padding:14px;
+    padding:14px 12px;
     font-size:16px;
-    border-radius:14px;
+    border-radius: var(--radiusCard);
   }
+
   .line{
     display:flex;
     justify-content:space-between;
     gap:10px;
-    padding:7px 0;
-    border-bottom:1px solid #f0f0f0;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
     font-size:14px;
+    align-items:center;
   }
   .line:last-child{border-bottom:none;}
-  .muted{color:#666;}
-  .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
-  .small{ font-size:13px; color:#666; }
+
+  .muted{color: var(--muted);}
+
+  .mono{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+
+  .small{ font-size:13px; color: var(--muted); }
+
+  /* Caja estado: estilo “chip” */
+  #estadoBox{
+    margin-top:10px;
+    padding:12px;
+    border-radius: 14px;
+    background: var(--chipBg);
+    border: 1px solid var(--border);
+  }
 </style>
 </head>
 <body>
 
-<h1>Parking</h1>
-<div class="date-top" id="fechaHoy"></div>
+<div class="topbar">
+  <div>
+    <h1>Parking</h1>
+    <div class="date-top" id="fechaHoy"></div>
+  </div>
+
+  <button class="theme-btn" id="btnTema" type="button" onclick="toggleTema()">
+    🌙 Modo oscuro
+  </button>
+</div>
 
 <div class="card">
   <strong>Mi coche</strong>
@@ -99,7 +205,7 @@
     <button id="btnVer" class="soft" onclick="verUbicacionCoche()" disabled>📌 Ver dónde está mi coche</button>
   </div>
 
-  <div style="margin-top:10px" id="estadoBox" class="small muted">
+  <div id="estadoBox" class="small muted">
     Sin ubicación guardada todavía.
   </div>
 
@@ -120,11 +226,32 @@
 </div>
 
 <script>
-const LS = { PARK: "park1_location" };
+const LS = { PARK: "park1_location", THEME: "park1_theme" };
 
 document.getElementById("fechaHoy").textContent = new Date().toLocaleDateString("es-ES");
 let park = null; // {lat, lon, acc, ts}
 
+/* =========================
+   ✅ TEMA (solo visual)
+   ========================= */
+function applyTema(mode){
+  const isDark = (mode === "dark");
+  document.body.classList.toggle("dark", isDark);
+  localStorage.setItem(LS.THEME, isDark ? "dark" : "light");
+
+  const btn = document.getElementById("btnTema");
+  if(btn){
+    btn.textContent = isDark ? "☀️ Modo claro" : "🌙 Modo oscuro";
+  }
+}
+function toggleTema(){
+  const cur = localStorage.getItem(LS.THEME) || "light";
+  applyTema(cur === "dark" ? "light" : "dark");
+}
+
+/* =========================
+   APP (funcional igual que antes)
+   ========================= */
 function safeNum(n){
   const x = parseFloat(n);
   return isNaN(x) ? 0 : x;
@@ -303,6 +430,9 @@ function getParams(){
 }
 
 (function init(){
+  // ✅ aplicar tema guardado (solo visual)
+  applyTema(localStorage.getItem(LS.THEME) || "light");
+
   try{
     const saved = JSON.parse(localStorage.getItem(LS.PARK));
     if(saved && typeof saved.lat === "number" && typeof saved.lon === "number"){
