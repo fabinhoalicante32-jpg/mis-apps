@@ -227,11 +227,17 @@
     Sin ubicación guardada todavía.
   </div>
 
+  <!-- ✅ NUEVO: distancia + dirección OFFLINE (usa solo GPS) -->
+  <div class="btn-grid" style="margin-top:10px;">
+    <button id="btnDist" class="soft" onclick="actualizarDistanciaOffline()" disabled>📡 Distancia offline</button>
+    <button id="btnCopiar" class="soft" onclick="copiarCoords()" disabled>Copiar coords</button>
+  </div>
+
   <div class="divider"></div>
 
   <div class="btn-grid" style="margin-top:6px;">
-    <button id="btnCopiar" class="soft" onclick="copiarCoords()" disabled>Copiar coords</button>
     <button id="btnBorrar" class="danger" onclick="borrarParking()" disabled>Borrar</button>
+    <button id="btnDummy" class="soft" disabled style="opacity:0;pointer-events:none;">—</button>
   </div>
 </div>
 
@@ -266,11 +272,51 @@ function formatDT(ts){
   const d = new Date(ts);
   return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
+
+/* ✅ NUEVO: utils distancia + rumbo */
+function toRad(d){ return d * Math.PI / 180; }
+function toDeg(r){ return r * 180 / Math.PI; }
+
+function haversineMeters(lat1, lon1, lat2, lon2){
+  const R = 6371000; // m
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function bearingDeg(lat1, lon1, lat2, lon2){
+  const y = Math.sin(toRad(lon2-lon1)) * Math.cos(toRad(lat2));
+  const x =
+    Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) -
+    Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lon2-lon1));
+  let brng = toDeg(Math.atan2(y, x));
+  brng = (brng + 360) % 360;
+  return brng;
+}
+
+function dir8(brng){
+  const dirs = ["N","NE","E","SE","S","SO","O","NO"];
+  const idx = Math.round(brng / 45) % 8;
+  return dirs[idx];
+}
+
+function formatDist(m){
+  if(!isFinite(m)) return "—";
+  if(m < 1000) return `${Math.round(m)} m`;
+  return `${(m/1000).toFixed(2)} km`;
+}
+
 function setEnabled(has){
   document.getElementById("btnAndando").disabled = !has;
   document.getElementById("btnVer").disabled = !has;
   document.getElementById("btnBorrar").disabled = !has;
   document.getElementById("btnCopiar").disabled = !has;
+  document.getElementById("btnDist").disabled = !has;   // ✅ NUEVO
 }
 
 function render(){
@@ -289,9 +335,69 @@ function render(){
     <div class="line"><span class="muted">Guardado</span><span><b>${when}</b></span></div>
     <div class="line"><span class="muted">Precisión</span><span>${acc ? (Math.round(acc) + " m") : "—"}</span></div>
     <div class="line"><span class="muted">Coords</span><span class="mono">${park.lat.toFixed(6)}, ${park.lon.toFixed(6)}</span></div>
+
+    <!-- ✅ NUEVO: distancia offline -->
+    <div class="line"><span class="muted">Distancia (offline)</span><span id="distOut">—</span></div>
+    <div class="line"><span class="muted">Dirección</span><span id="dirOut">—</span></div>
+    <div class="line"><span class="muted">Actualizado</span><span id="distWhen">—</span></div>
   `;
 
   setEnabled(true);
+}
+
+/* ✅ NUEVO: calcula distancia + dirección usando GPS actual (funciona sin internet) */
+function actualizarDistanciaOffline(opts = {}){
+  const { silent=false } = opts;
+
+  if(!park) return;
+  if(!navigator.geolocation){
+    if(!silent) alert("Tu navegador no soporta GPS (geolocalización).");
+    return;
+  }
+
+  const btn = document.getElementById("btnDist");
+  btn.disabled = true;
+  const oldTxt = btn.textContent;
+  btn.textContent = "Calculando...";
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+
+      const m = haversineMeters(lat, lon, park.lat, park.lon);
+      const brng = bearingDeg(lat, lon, park.lat, park.lon);
+      const dir = dir8(brng);
+
+      const distEl = document.getElementById("distOut");
+      const dirEl = document.getElementById("dirOut");
+      const whenEl = document.getElementById("distWhen");
+
+      if(distEl) distEl.textContent = formatDist(m);
+      if(dirEl) dirEl.textContent = `${dir} (${Math.round(brng)}°)`;
+      if(whenEl) whenEl.textContent = formatDT(Date.now());
+
+      btn.disabled = false;
+      btn.textContent = oldTxt;
+
+      if(!silent){
+        // sin alert para no molestar; pero si quieres, descomenta:
+        // alert("Distancia actualizada ✅");
+      }
+    },
+    (err) => {
+      btn.disabled = false;
+      btn.textContent = oldTxt;
+
+      let msg = "No se pudo obtener tu ubicación actual.";
+      if(err && err.code === 1) msg = "Permiso denegado. Activa la ubicación para Chrome y vuelve a probar.";
+      if(err && err.code === 2) msg = "Ubicación no disponible. Prueba en un sitio con mejor cobertura GPS.";
+      if(err && err.code === 3) msg = "Se agotó el tiempo. Vuelve a intentar.";
+
+      if(!silent) alert(msg);
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
 }
 
 function guardarParking(opts = {}){
@@ -328,6 +434,10 @@ function guardarParking(opts = {}){
       try{ navigator.vibrate && navigator.vibrate(60); }catch(e){}
 
       render();
+
+      // ✅ opcional: auto-calcular distancia al guardar
+      actualizarDistanciaOffline({ silent:true });
+
       if(!silent) alert("Ubicación guardada ✅");
     },
     (err) => {
@@ -413,6 +523,10 @@ function restaurarBackup(event){
         park = { lat: p.lat, lon: p.lon, acc: safeNum(p.acc), ts: p.ts || Date.now() };
         localStorage.setItem(LS.PARK, JSON.stringify(park));
         render();
+
+        // ✅ opcional: auto-calcular distancia al restaurar
+        actualizarDistanciaOffline({ silent:true });
+
         alert("Copia restaurada correctamente ✅");
       }else{
         alert("Archivo válido, pero no contiene ubicación.");
@@ -456,6 +570,11 @@ function getParams(){
   if(params.go){
     if(park) verUbicacionCoche();
     else alert("No hay ubicación guardada todavía.");
+  }
+
+  // ✅ opcional: al abrir, si ya hay coche guardado, puedes calcular sin molestar
+  if(park){
+    actualizarDistanciaOffline({ silent:true });
   }
 })();
 </script>
