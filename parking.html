@@ -216,7 +216,8 @@
     <span class="hint">Guarda • Ve • Navega</span>
   </div>
 
-  <button class="big" id="btnGuardar" onclick="guardarParking()">📍 Guardar dónde aparqué</button>
+  <!-- ✅ ÚNICO CAMBIO: overwrite:true para que el botón SIEMPRE guarde aunque ya haya ubicación -->
+  <button class="big" id="btnGuardar" onclick="guardarParking({overwrite:true})">📍 Guardar dónde aparqué</button>
 
   <div class="btn-grid">
     <button id="btnAndando" class="soft" onclick="abrirRutaAndando()" disabled>🚶 Ir andando</button>
@@ -381,7 +382,6 @@ function actualizarDistanciaOffline(opts = {}){
       btn.textContent = oldTxt;
 
       if(!silent){
-        // sin alert para no molestar; pero si quieres, descomenta:
         // alert("Distancia actualizada ✅");
       }
     },
