@@ -465,7 +465,9 @@ function abrirRutaAndando(){
 // 📌 Ver pin del coche en Maps (sin ruta)
 function verUbicacionCoche(){
   if(!park) return;
-  window.location.href = `geo:0,0?q=${park.lat},${park.lon}`;
+  const q = `${park.lat},${park.lon}`;
+  const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+  window.location.href = `geo:${park.lat},${park.lon}?q=${park.lat},${park.lon}`;
 }
 
 async function copiarCoords(){
