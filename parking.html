@@ -196,6 +196,12 @@
     color: var(--muted);
     line-height:1.4;
   }
+  #coordsLine {
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+}
 </style>
 </head>
 <body>
@@ -335,7 +341,7 @@ function render(){
   box.innerHTML = `
     <div class="line"><span class="muted">Guardado</span><span><b>${when}</b></span></div>
     <div class="line"><span class="muted">Precisión</span><span>${acc ? (Math.round(acc) + " m") : "—"}</span></div>
-    <div class="line"><span class="muted">Coords</span><span class="mono">${park.lat.toFixed(6)}, ${park.lon.toFixed(6)}</span></div>
+    <div class="line"><span class="muted">Coords</span><span class="mono" id="coordsLine">${park.lat.toFixed(6)}, ${park.lon.toFixed(6)}</span></div>
 
     <!-- ✅ NUEVO: distancia offline -->
     <div class="line"><span class="muted">Distancia (offline)</span><span id="distOut">—</span></div>
@@ -576,6 +582,79 @@ function getParams(){
   if(park){
     actualizarDistanciaOffline({ silent:true });
   }
+  // 🔵 Ajuste manual con pulsación larga (2 segundos)
+let pressTimer;
+
+document.addEventListener("touchstart", function(e){
+  if(e.target && e.target.id === "coordsLine"){
+    pressTimer = setTimeout(() => {
+      ajusteManual();
+    }, 1000);
+  }
+});
+
+document.addEventListener("touchend", function(){
+  clearTimeout(pressTimer);
+});
+
+document.addEventListener("mousedown", function(e){
+  if(e.target && e.target.id === "coordsLine"){
+    pressTimer = setTimeout(() => {
+      ajusteManual();
+    }, 1000);
+  }
+});
+
+document.addEventListener("mouseup", function(){
+  clearTimeout(pressTimer);
+});
+
+function ajusteManual(){
+  if(!park) return;
+
+  const raw = prompt(
+    "Introduce nuevas coordenadas (lat,lon):",
+    park.lat + "," + park.lon
+  );
+
+  if(raw === null) return;
+
+  const parsed = parseCoordsFlexible(raw);
+  if(!parsed){
+    alert("Formato inválido. Ejemplo válido:\n38.3422124,-0.5060745\nó\n38,3422124, -0,5060745");
+    return;
+  }
+
+  park = { lat: parsed.lat, lon: parsed.lon, acc: 0, ts: Date.now() };
+  localStorage.setItem(LS.PARK, JSON.stringify(park));
+  render();
+  actualizarDistanciaOffline({ silent:true });
+  alert("Ubicación ajustada manualmente ✅");
+}
+
+function parseCoordsFlexible(input){
+  let s = String(input || "").trim();
+
+  const commas = (s.match(/,/g) || []).length;
+
+  if(commas >= 3){
+    s = s.replace(/,\s+/g, "|");
+    s = s.replace(/,/g, ".");
+    s = s.replace(/\|/g, ",");
+  }
+
+  const nums = s.match(/-?\d+(?:\.\d+)?/g);
+  if(!nums || nums.length < 2) return null;
+
+  const lat = parseFloat(nums[0]);
+  const lon = parseFloat(nums[1]);
+
+  if(!isFinite(lat) || !isFinite(lon)) return null;
+  if(lat < -90 || lat > 90) return null;
+  if(lon < -180 || lon > 180) return null;
+
+  return { lat, lon };
+}
 })();
 </script>
 
