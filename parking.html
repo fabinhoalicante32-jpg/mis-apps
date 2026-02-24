@@ -196,12 +196,69 @@
     color: var(--muted);
     line-height:1.4;
   }
-  #coordsLine {
-  user-select: none;
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  -webkit-touch-callout: none;
-}
+
+  /* ✅ tu ajuste para que no seleccione texto */
+  #coordsLine{
+    user-select:none;
+    -webkit-user-select:none;
+    -ms-user-select:none;
+    -webkit-touch-callout:none;
+  }
+
+  /* ✅ NUEVO: UI brújula (compacta, no deja hueco feo) */
+  .compass-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    width:100%;
+  }
+  .compass-left{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width: 0;
+  }
+  .compass-dial{
+    width:34px;
+    height:34px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background: rgba(255,255,255,0.75);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 auto;
+  }
+  .compass-arrow{
+    width:0;
+    height:0;
+    border-left:7px solid transparent;
+    border-right:7px solid transparent;
+    border-bottom:16px solid #111827;
+    transform-origin:50% 75%;
+    transform: rotate(0deg);
+  }
+  .compass-text{
+    font-size:13px;
+    color: var(--muted);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width: 210px;
+  }
+  .btn-mini{
+    width:auto;
+    padding:7px 12px;
+    margin:0;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:900;
+    border:1px solid var(--softBorder);
+    background: var(--softBg);
+    color: var(--text);
+    flex:0 0 auto;
+  }
 </style>
 </head>
 <body>
@@ -270,6 +327,12 @@ const LS = { PARK: "park1_location" };
 document.getElementById("fechaHoy").textContent = new Date().toLocaleDateString("es-ES");
 let park = null; // {lat, lon, acc, ts}
 
+/* ✅ NUEVO: brújula */
+let compassOn = false;
+let lastDeviceHeading = null;   // grados 0..360 (norte)
+let watchCurrentId = null;
+let currentPos = null;
+
 function safeNum(n){
   const x = parseFloat(n);
   return isNaN(x) ? 0 : x;
@@ -323,7 +386,7 @@ function setEnabled(has){
   document.getElementById("btnVer").disabled = !has;
   document.getElementById("btnBorrar").disabled = !has;
   document.getElementById("btnCopiar").disabled = !has;
-  document.getElementById("btnDist").disabled = !has;   // ✅ NUEVO
+  document.getElementById("btnDist").disabled = !has;
 }
 
 function render(){
@@ -341,15 +404,36 @@ function render(){
   box.innerHTML = `
     <div class="line"><span class="muted">Guardado</span><span><b>${when}</b></span></div>
     <div class="line"><span class="muted">Precisión</span><span>${acc ? (Math.round(acc) + " m") : "—"}</span></div>
-    <div class="line"><span class="muted">Coords</span><span class="mono" id="coordsLine">${park.lat.toFixed(6)}, ${park.lon.toFixed(6)}</span></div>
 
-    <!-- ✅ NUEVO: distancia offline -->
+    <div class="line">
+      <span class="muted">Coords</span>
+      <span class="mono" id="coordsLine">${park.lat.toFixed(6)}, ${park.lon.toFixed(6)}</span>
+    </div>
+
     <div class="line"><span class="muted">Distancia (offline)</span><span id="distOut">—</span></div>
     <div class="line"><span class="muted">Dirección</span><span id="dirOut">—</span></div>
+
+    <!-- ✅ NUEVO: Brújula (fila SIN huecos raros) -->
+    <div class="line">
+      <span class="muted">Brújula</span>
+      <span class="compass-row">
+        <span class="compass-left">
+          <span class="compass-dial"><span id="compassArrow" class="compass-arrow"></span></span>
+          <span id="compassText" class="compass-text">${compassOn ? "Calculando…" : "Brújula apagada"}</span>
+        </span>
+        <button id="btnCompass" class="btn-mini" onclick="toggleCompass()">${compassOn ? "Desactivar" : "Activar"}</button>
+      </span>
+    </div>
+
     <div class="line"><span class="muted">Actualizado</span><span id="distWhen">—</span></div>
   `;
 
   setEnabled(true);
+
+  // si la brújula está encendida, refrescamos la flecha
+  if(compassOn){
+    updateCompassUI();
+  }
 }
 
 /* ✅ NUEVO: calcula distancia + dirección usando GPS actual (funciona sin internet) */
@@ -384,12 +468,11 @@ function actualizarDistanciaOffline(opts = {}){
       if(dirEl) dirEl.textContent = `${dir} (${Math.round(brng)}°)`;
       if(whenEl) whenEl.textContent = formatDT(Date.now());
 
+      // ✅ actualizar currentPos para brújula (si está activada)
+      currentPos = { lat, lon };
+
       btn.disabled = false;
       btn.textContent = oldTxt;
-
-      if(!silent){
-        // alert("Distancia actualizada ✅");
-      }
     },
     (err) => {
       btn.disabled = false;
@@ -414,7 +497,6 @@ function guardarParking(opts = {}){
     return;
   }
 
-  // si ya hay una ubicación y no quieres sobreescribir (modo rutina auto), salimos
   if(park && !overwrite){
     if(!silent) alert("Ya hay una ubicación guardada. Si quieres cambiarla, pulsa Guardar.");
     return;
@@ -441,7 +523,6 @@ function guardarParking(opts = {}){
 
       render();
 
-      // ✅ opcional: auto-calcular distancia al guardar
       actualizarDistanciaOffline({ silent:true });
 
       if(!silent) alert("Ubicación guardada ✅");
@@ -463,16 +544,11 @@ function guardarParking(opts = {}){
 
 function abrirRutaAndando(){
   if(!park) return;
-  const dest = `${park.lat},${park.lon}`;
-  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}&travelmode=walking`;
   window.location.href = `google.navigation:q=${park.lat},${park.lon}&mode=w`;
 }
 
-// 📌 Ver pin del coche en Maps (sin ruta)
 function verUbicacionCoche(){
   if(!park) return;
-  const q = `${park.lat},${park.lon}`;
-  const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
   window.location.href = `geo:${park.lat},${park.lon}?q=${park.lat},${park.lon}`;
 }
 
@@ -499,6 +575,10 @@ function borrarParking(){
 
   park = null;
   localStorage.removeItem(LS.PARK);
+
+  // si estaba brújula activa, la paramos para evitar errores
+  stopCompass();
+
   render();
   alert("Ubicación borrada");
 }
@@ -530,7 +610,6 @@ function restaurarBackup(event){
         localStorage.setItem(LS.PARK, JSON.stringify(park));
         render();
 
-        // ✅ opcional: auto-calcular distancia al restaurar
         actualizarDistanciaOffline({ silent:true });
 
         alert("Copia restaurada correctamente ✅");
@@ -554,6 +633,117 @@ function getParams(){
   };
 }
 
+/* ==========================
+   ✅ NUEVO: BRÚJULA REAL
+   ========================== */
+
+async function toggleCompass(){
+  if(compassOn){
+    stopCompass();
+    render();
+    return;
+  }
+  await startCompass();
+  render();
+}
+
+function stopCompass(){
+  compassOn = false;
+  lastDeviceHeading = null;
+
+  if(watchCurrentId !== null && navigator.geolocation){
+    try{ navigator.geolocation.clearWatch(watchCurrentId); }catch(e){}
+    watchCurrentId = null;
+  }
+
+  window.removeEventListener("deviceorientationabsolute", onDeviceOrientation, true);
+  window.removeEventListener("deviceorientation", onDeviceOrientation, true);
+}
+
+async function startCompass(){
+  // Soporte de sensores
+  if(typeof DeviceOrientationEvent === "undefined"){
+    alert("Este móvil/navegador no soporta brújula (sensor de orientación).");
+    return;
+  }
+
+  // iPhone/iPad piden permiso (Safari). Android suele no pedir.
+  try{
+    if(typeof DeviceOrientationEvent.requestPermission === "function"){
+      const res = await DeviceOrientationEvent.requestPermission();
+      if(res !== "granted"){
+        alert("Permiso de brújula denegado.");
+        return;
+      }
+    }
+  }catch(e){
+    // si falla, seguimos (en Android no aplica)
+  }
+
+  compassOn = true;
+
+  // GPS en background para saber hacia dónde está el coche desde tu posición actual
+  if(navigator.geolocation){
+    watchCurrentId = navigator.geolocation.watchPosition(
+      (pos) => {
+        currentPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        updateCompassUI();
+      },
+      () => { /* silencioso */ },
+      { enableHighAccuracy:true, maximumAge:1000, timeout:15000 }
+    );
+  }
+
+  // Mejor: absolute si existe
+  window.addEventListener("deviceorientationabsolute", onDeviceOrientation, true);
+  window.addEventListener("deviceorientation", onDeviceOrientation, true);
+}
+
+function onDeviceOrientation(e){
+  // iOS usa webkitCompassHeading (0..360)
+  if(typeof e.webkitCompassHeading === "number"){
+    lastDeviceHeading = e.webkitCompassHeading; // ya es heading real
+  }else if(typeof e.alpha === "number"){
+    // En muchos Android, alpha es rotación. Puede variar por navegador,
+    // pero suele servir como aproximación.
+    lastDeviceHeading = (360 - e.alpha) % 360;
+  }
+  updateCompassUI();
+}
+
+function updateCompassUI(){
+  if(!compassOn) return;
+  if(!park) return;
+
+  const txtEl = document.getElementById("compassText");
+  const arrowEl = document.getElementById("compassArrow");
+
+  if(!txtEl || !arrowEl){
+    return;
+  }
+
+  if(!currentPos){
+    txtEl.textContent = "Buscando tu posición…";
+    return;
+  }
+  if(lastDeviceHeading === null){
+    txtEl.textContent = "Buscando sensor…";
+    return;
+  }
+
+  const brng = bearingDeg(currentPos.lat, currentPos.lon, park.lat, park.lon);
+  const rel = (brng - lastDeviceHeading + 360) % 360;
+
+  arrowEl.style.transform = `rotate(${rel}deg)`;
+
+  const dir = dir8(brng);
+  txtEl.textContent = `${dir} (${Math.round(brng)}°)`;
+}
+
+/* ==========================
+   ✅ Ajuste manual por pulsación larga (como ya lo tienes)
+   ========================== */
+
 (function init(){
   try{
     const saved = JSON.parse(localStorage.getItem(LS.PARK));
@@ -564,97 +754,94 @@ function getParams(){
 
   render();
 
-  // ✅ parámetros para tus rutinas Samsung
   const params = getParams();
 
-  // auto=1 -> guarda SOLO si no hay ubicación guardada (no pisa la anterior)
   if(params.auto){
     guardarParking({ silent:true, overwrite:true });
   }
 
-  // go=1 -> abre Maps directo al pin del coche
   if(params.go){
     if(park) verUbicacionCoche();
     else alert("No hay ubicación guardada todavía.");
   }
 
-  // ✅ opcional: al abrir, si ya hay coche guardado, puedes calcular sin molestar
   if(park){
     actualizarDistanciaOffline({ silent:true });
   }
-  // 🔵 Ajuste manual con pulsación larga (2 segundos)
-let pressTimer;
 
-document.addEventListener("touchstart", function(e){
-  if(e.target && e.target.id === "coordsLine"){
-    pressTimer = setTimeout(() => {
-      ajusteManual();
-    }, 1000);
-  }
-});
+  // 🔵 Ajuste manual con pulsación larga
+  let pressTimer;
 
-document.addEventListener("touchend", function(){
-  clearTimeout(pressTimer);
-});
+  document.addEventListener("touchstart", function(e){
+    if(e.target && e.target.id === "coordsLine"){
+      pressTimer = setTimeout(() => {
+        ajusteManual();
+      }, 1000);
+    }
+  });
 
-document.addEventListener("mousedown", function(e){
-  if(e.target && e.target.id === "coordsLine"){
-    pressTimer = setTimeout(() => {
-      ajusteManual();
-    }, 1000);
-  }
-});
+  document.addEventListener("touchend", function(){
+    clearTimeout(pressTimer);
+  });
 
-document.addEventListener("mouseup", function(){
-  clearTimeout(pressTimer);
-});
+  document.addEventListener("mousedown", function(e){
+    if(e.target && e.target.id === "coordsLine"){
+      pressTimer = setTimeout(() => {
+        ajusteManual();
+      }, 1000);
+    }
+  });
 
-function ajusteManual(){
-  if(!park) return;
+  document.addEventListener("mouseup", function(){
+    clearTimeout(pressTimer);
+  });
 
-  const raw = prompt(
-    "Introduce nuevas coordenadas (lat,lon):",
-    park.lat + "," + park.lon
-  );
+  function ajusteManual(){
+    if(!park) return;
 
-  if(raw === null) return;
+    const raw = prompt(
+      "Introduce nuevas coordenadas (lat,lon):",
+      park.lat + "," + park.lon
+    );
 
-  const parsed = parseCoordsFlexible(raw);
-  if(!parsed){
-    alert("Formato inválido. Ejemplo válido:\n38.3422124,-0.5060745\nó\n38,3422124, -0,5060745");
-    return;
-  }
+    if(raw === null) return;
 
-  park = { lat: parsed.lat, lon: parsed.lon, acc: 0, ts: Date.now() };
-  localStorage.setItem(LS.PARK, JSON.stringify(park));
-  render();
-  actualizarDistanciaOffline({ silent:true });
-  alert("Ubicación ajustada manualmente ✅");
-}
+    const parsed = parseCoordsFlexible(raw);
+    if(!parsed){
+      alert("Formato inválido. Ejemplo válido:\n38.3422124,-0.5060745\nó\n38,3422124, -0,5060745");
+      return;
+    }
 
-function parseCoordsFlexible(input){
-  let s = String(input || "").trim();
-
-  const commas = (s.match(/,/g) || []).length;
-
-  if(commas >= 3){
-    s = s.replace(/,\s+/g, "|");
-    s = s.replace(/,/g, ".");
-    s = s.replace(/\|/g, ",");
+    park = { lat: parsed.lat, lon: parsed.lon, acc: 0, ts: Date.now() };
+    localStorage.setItem(LS.PARK, JSON.stringify(park));
+    render();
+    actualizarDistanciaOffline({ silent:true });
+    alert("Ubicación ajustada manualmente ✅");
   }
 
-  const nums = s.match(/-?\d+(?:\.\d+)?/g);
-  if(!nums || nums.length < 2) return null;
+  function parseCoordsFlexible(input){
+    let s = String(input || "").trim();
 
-  const lat = parseFloat(nums[0]);
-  const lon = parseFloat(nums[1]);
+    const commas = (s.match(/,/g) || []).length;
 
-  if(!isFinite(lat) || !isFinite(lon)) return null;
-  if(lat < -90 || lat > 90) return null;
-  if(lon < -180 || lon > 180) return null;
+    if(commas >= 3){
+      s = s.replace(/,\s+/g, "|");
+      s = s.replace(/,/g, ".");
+      s = s.replace(/\|/g, ",");
+    }
 
-  return { lat, lon };
-}
+    const nums = s.match(/-?\d+(?:\.\d+)?/g);
+    if(!nums || nums.length < 2) return null;
+
+    const lat = parseFloat(nums[0]);
+    const lon = parseFloat(nums[1]);
+
+    if(!isFinite(lat) || !isFinite(lon)) return null;
+    if(lat < -90 || lat > 90) return null;
+    if(lon < -180 || lon > 180) return null;
+
+    return { lat, lon };
+  }
 })();
 </script>
 
